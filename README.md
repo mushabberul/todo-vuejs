@@ -12,3 +12,6 @@
 
 ## Project video link
 https://youtu.be/KdFpSAv7_YE?si=uJjU1V9pvv3AJKbA
+
+## Project Image
+![alt text](image.png)
