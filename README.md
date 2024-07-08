@@ -9,3 +9,6 @@
 ## Technologis
 1.Vue JS
 2.Bootstrap
+
+## Project video link
+https://youtu.be/KdFpSAv7_YE?si=uJjU1V9pvv3AJKbA
