@@ -63,14 +63,7 @@ export const useTodoStore = defineStore('todo', {
       }
 
       try {
-        const { data } = await axios.post('https://jsonplaceholder.typicode.com/todos', payload)
-        created = {
-          ...created,
-          ...data,
-          id: data.id ?? created.id,
-          title,
-          completed: false,
-        }
+        await axios.post('https://jsonplaceholder.typicode.com/todos', payload)
       } catch {
         // jsonplaceholder is a mock API; keep the local task if the request fails
       }
