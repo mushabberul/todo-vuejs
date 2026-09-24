@@ -55,18 +55,35 @@ export const useTodoStore = defineStore('todo', {
       }
 
       const payload = { ...this.todoForm, title }
-      const { data } = await axios.post('https://jsonplaceholder.typicode.com/todos', payload)
-      this.todos.unshift({
+      let created = {
         ...payload,
-        ...data,
-        id: data.id ?? Date.now(),
+        id: Date.now(),
         title,
         completed: false,
-      })
+      }
+
+      try {
+        const { data } = await axios.post('https://jsonplaceholder.typicode.com/todos', payload)
+        created = {
+          ...created,
+          ...data,
+          id: data.id ?? created.id,
+          title,
+          completed: false,
+        }
+      } catch {
+        // jsonplaceholder is a mock API; keep the local task if the request fails
+      }
+
+      this.todos.unshift(created)
       this.resetForm()
     },
     async deleteTodo(id) {
-      await axios.delete(`https://jsonplaceholder.typicode.com/todos/${id}`)
+      try {
+        await axios.delete(`https://jsonplaceholder.typicode.com/todos/${id}`)
+      } catch {
+        // Newly created mock ids can 500; still remove locally
+      }
       this.todos = this.todos.filter((todo) => todo.id !== id)
       if (this.editingId === id) {
         this.resetForm()
@@ -102,19 +119,21 @@ export const useTodoStore = defineStore('todo', {
       }
 
       const payload = { ...this.todoForm, title }
-      const { data } = await axios.put(`https://jsonplaceholder.typicode.com/todos/${id}`, payload)
       this.todos = this.todos.map((todo) =>
         todo.id === id
           ? {
               ...todo,
-              ...data,
-              id,
               title,
-              completed: todo.completed,
             }
           : todo
       )
       this.resetForm()
+
+      try {
+        await axios.put(`https://jsonplaceholder.typicode.com/todos/${id}`, payload)
+      } catch {
+        // jsonplaceholder returns 500 for ids it did not persist
+      }
     },
     toggleCompleted(id) {
       this.todos = this.todos.map((todo) =>
