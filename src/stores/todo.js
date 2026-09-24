@@ -1,45 +1,136 @@
-
 import axios from 'axios'
 import { defineStore } from 'pinia'
 
-export const useTodoStore = defineStore('todo', {
-  state:()=>({
-    todos:[],
-    todoForm:{
-      completed:false,
-      id:1,
-      title:null,
-      userId:1,
-    },
-    isEdit:false,
-    
-  }),
-  actions:{
-    async getToDos(){
-      const {data}= await axios.get('https://jsonplaceholder.typicode.com/todos');
-      this.todos = data;      
-    },
-    async createTodo(){
-      const {data} = await axios.post('https://jsonplaceholder.typicode.com/todos',this.todoForm);
-      this.todos.push(data);
-      this.todos.reverse();
-      this.todoForm.title ='';
-    },
-    async deleteTodo(id){
-      const {data} = await axios.delete(`https://jsonplaceholder.typicode.com/todos/${id}`);
-      this.todos = this.todos.filter(todo=>{
-        return todo.id != id;
-      });
-    },
-    async editTodo(id){
-      const {data} = await axios.get(`https://jsonplaceholder.typicode.com/todos/${id}`);
-      this.todoForm.title = data.title;
-      this.isEdit = true;
-    },
-    async updateTodo(id){
-      const {data} = await axios.put(`https://jsonplaceholder.typicode.com/todos/${id}`);
-      this.todos.push(data);
-    }
+const FILTER_OPTIONS = [
+  { id: 'all', label: 'All' },
+  { id: 'open', label: 'Open' },
+  { id: 'completed', label: 'Done' },
+]
 
+function emptyForm() {
+  return {
+    completed: false,
+    title: '',
+    userId: 1,
   }
+}
+
+export const useTodoStore = defineStore('todo', {
+  state: () => ({
+    todos: [],
+    todoForm: emptyForm(),
+    isEdit: false,
+    editingId: null,
+    filter: 'all',
+    filterOptions: FILTER_OPTIONS,
+    loading: false,
+  }),
+  getters: {
+    remainingCount: (state) => state.todos.filter((todo) => !todo.completed).length,
+    completedCount: (state) => state.todos.filter((todo) => todo.completed).length,
+    visibleTodos: (state) => {
+      if (state.filter === 'open') {
+        return state.todos.filter((todo) => !todo.completed)
+      }
+      if (state.filter === 'completed') {
+        return state.todos.filter((todo) => todo.completed)
+      }
+      return state.todos
+    },
+  },
+  actions: {
+    async getToDos() {
+      this.loading = true
+      try {
+        const { data } = await axios.get('https://jsonplaceholder.typicode.com/todos')
+        this.todos = data
+      } finally {
+        this.loading = false
+      }
+    },
+    async createTodo() {
+      const title = this.todoForm.title?.trim()
+      if (!title) {
+        return
+      }
+
+      const payload = { ...this.todoForm, title }
+      const { data } = await axios.post('https://jsonplaceholder.typicode.com/todos', payload)
+      this.todos.unshift({
+        ...payload,
+        ...data,
+        id: data.id ?? Date.now(),
+        title,
+        completed: false,
+      })
+      this.resetForm()
+    },
+    async deleteTodo(id) {
+      await axios.delete(`https://jsonplaceholder.typicode.com/todos/${id}`)
+      this.todos = this.todos.filter((todo) => todo.id !== id)
+      if (this.editingId === id) {
+        this.resetForm()
+      }
+    },
+    async editTodo(id) {
+      const existing = this.todos.find((todo) => todo.id === id)
+      if (existing) {
+        this.todoForm = {
+          completed: existing.completed,
+          title: existing.title,
+          userId: existing.userId ?? 1,
+        }
+        this.isEdit = true
+        this.editingId = id
+        return
+      }
+
+      const { data } = await axios.get(`https://jsonplaceholder.typicode.com/todos/${id}`)
+      this.todoForm = {
+        completed: data.completed,
+        title: data.title,
+        userId: data.userId ?? 1,
+      }
+      this.isEdit = true
+      this.editingId = id
+    },
+    async updateTodo() {
+      const id = this.editingId
+      const title = this.todoForm.title?.trim()
+      if (!id || !title) {
+        return
+      }
+
+      const payload = { ...this.todoForm, title }
+      const { data } = await axios.put(`https://jsonplaceholder.typicode.com/todos/${id}`, payload)
+      this.todos = this.todos.map((todo) =>
+        todo.id === id
+          ? {
+              ...todo,
+              ...data,
+              id,
+              title,
+              completed: todo.completed,
+            }
+          : todo
+      )
+      this.resetForm()
+    },
+    toggleCompleted(id) {
+      this.todos = this.todos.map((todo) =>
+        todo.id === id ? { ...todo, completed: !todo.completed } : todo
+      )
+    },
+    setFilter(filter) {
+      this.filter = filter
+    },
+    cancelEdit() {
+      this.resetForm()
+    },
+    resetForm() {
+      this.todoForm = emptyForm()
+      this.isEdit = false
+      this.editingId = null
+    },
+  },
 })
